@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<meta name="theme-color" content="#0e0e10">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
+<title>FretFlash — Guitar Fretboard Trainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<style>
+@layer base{html,body{margin:0;padding:0;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}
+/* Page must stay vertically scrollable: use `clip` (no scroll container) instead of `hidden`. */
+html,body{overflow-x:clip;}
+@supports not (overflow:clip){html,body{overflow-x:hidden;}body{position:relative;}}
+html{overscroll-behavior-y:auto;}
+body{overscroll-behavior-y:auto;overscroll-behavior-x:none;}
+body{-webkit-tap-highlight-color:transparent;padding-bottom:env(safe-area-inset-bottom);}
+button{touch-action:manipulation;}
+/* Only the fretboard scroller hides its scrollbar — the page keeps its own. */
+.fret-scroll{scrollbar-width:none;}
+.fret-scroll::-webkit-scrollbar{display:none;width:0;height:0;}
+/* Fluid flash typography: 96px desktop, scales down on phones */
+#flash-string-number,#flash-note-name{font-size:clamp(3.25rem,17vw,6rem)!important;line-height:1!important;letter-spacing:-0.04em;max-width:100%;overflow-wrap:break-word;}
+#flash-string-ordinal{font-size:clamp(1.25rem,5vw,1.5rem)!important;}
+#flash-string-tuning,#flash-solution-fret{max-width:100%;white-space:normal!important;text-align:center;line-height:1.35;}
+input[type="range"]{-webkit-appearance:none;appearance:none;background:transparent;}
+input[type="range"]::-webkit-slider-runnable-track{height:8px;border-radius:9999px;background:#353437;}
+input[type="range"]::-moz-range-track{height:8px;border-radius:9999px;background:#353437;}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;border-radius:50%;background:#f97316;cursor:pointer;box-shadow:0 0 10px rgba(249,115,22,.7);border:2px solid #552100;margin-top:-8px;}
+input[type="range"]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#f97316;cursor:pointer;border:2px solid #552100;}
+@media (min-width:640px){
+  input[type="range"]::-webkit-slider-thumb{width:18px;height:18px;margin-top:-5px;}
+  input[type="range"]::-moz-range-thumb{width:18px;height:18px;}
+}
+.note-marker{font-size:11px;}
+.fret-cell:hover .note-marker:not(.active-target-fret){opacity:.45 !important;transform:scale(1) !important;}
+/* Touch: bigger fret targets, hide hover flash */
+@media (pointer:coarse){
+  .fret-cell{min-height:2.5rem;}
+  .note-marker{width:1.75rem!important;height:1.75rem!important;font-size:12px!important;}
+  .fret-cell:hover .note-marker:not(.active-target-fret){opacity:0 !important;}
+}
+.fret-scroll{-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;}
+.fret-scroll-hint{animation:hintNudge 2.2s ease-in-out infinite;}
+@keyframes hintNudge{0%,100%{transform:translateX(0);opacity:.7;}50%{transform:translateX(6px);opacity:1;}}
+@media (prefers-reduced-motion:reduce){.fret-scroll-hint{animation:none;}}
+kbd{font-family:'JetBrains Mono',monospace;}
+</style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-bright": "#39393b", "tertiary": "#4cd7f6", "background": "#131315",
+        "primary-container": "#f97316", "primary": "#ffb690", "on-primary": "#552100",
+        "error": "#ffb4ab", "surface-tint": "#ffb690", "primary-fixed": "#ffdbca",
+        "surface-container-lowest": "#0e0e10", "inverse-primary": "#9d4300",
+        "surface-container": "#201f22", "surface-container-high": "#2a2a2c",
+        "secondary-container": "#00a572", "secondary-fixed-dim": "#4edea3",
+        "outline": "#a78b7d", "on-secondary-fixed-variant": "#005236",
+        "on-primary-container": "#582200", "surface": "#131315",
+        "error-container": "#93000a", "secondary-fixed": "#6ffbbe", "on-error": "#690005",
+        "tertiary-fixed": "#acedff", "tertiary-fixed-dim": "#4cd7f6",
+        "on-surface": "#e5e1e4", "surface-dim": "#131315", "outline-variant": "#584237",
+        "surface-container-low": "#1c1b1d", "surface-variant": "#353437",
+        "inverse-surface": "#e5e1e4", "secondary": "#4edea3",
+        "tertiary-container": "#00a9c5", "primary-fixed-dim": "#ffb690",
+        "on-surface-variant": "#e0c0b1", "on-background": "#e5e1e4",
+        "surface-container-highest": "#353437"
+      },
+      borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" },
+      spacing: { "space-xs": "0.25rem", "space-sm": "0.5rem", "space-md": "1rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "gutter": "1rem" },
+      fontFamily: {
+        "display-flash": ["JetBrains Mono"], "body-lg": ["Inter"], "headline-sm": ["Inter"],
+        "label-mono-lg": ["JetBrains Mono"], "body-md": ["Inter"], "body-sm": ["Inter"],
+        "label-mono-sm": ["JetBrains Mono"], "label-mono-md": ["JetBrains Mono"],
+        "headline-lg": ["Inter"], "headline-md": ["Inter"]
+      },
+      fontSize: {
+        "display-flash": ["96px", { lineHeight: "96px", letterSpacing: "-0.05em", fontWeight: "800" }],
+        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+        "headline-sm": ["18px", { lineHeight: "24px", fontWeight: "600" }],
+        "label-mono-lg": ["18px", { lineHeight: "22px", letterSpacing: "0.02em", fontWeight: "700" }],
+        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+        "body-sm": ["12px", { lineHeight: "16px", fontWeight: "400" }],
+        "label-mono-sm": ["11px", { lineHeight: "14px", letterSpacing: "0.06em", fontWeight: "500" }],
+        "label-mono-md": ["13px", { lineHeight: "18px", letterSpacing: "0.04em", fontWeight: "500" }],
+        "headline-lg": ["36px", { lineHeight: "44px", letterSpacing: "-0.02em", fontWeight: "700" }],
+        "headline-md": ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" }]
+      }
+    }
+  }
+};
+</script>
+</head>
+<body class="bg-background font-body-md text-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container">
+
+<header class="fixed top-0 w-full z-50 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+  <div class="h-14 max-w-7xl mx-auto px-4 sm:px-gutter flex items-center justify-between gap-2">
+    <a class="flex items-center gap-2 shrink-0" href="#" onclick="return false">
+      <div class="w-7 h-7 rounded bg-primary-container/10 flex items-center justify-center text-primary"><span class="material-symbols-outlined text-[18px]">graphic_eq</span></div>
+      <span class="font-headline-sm text-[16px] font-bold tracking-tight leading-none">Fret<span class="text-primary-container">Flash</span></span>
+    </a>
+    <div class="flex items-center gap-1 sm:gap-space-md shrink-0">
+      <div class="flex items-center gap-1 font-label-mono-sm text-label-mono-sm px-1">
+        <span class="opacity-70 text-on-surface-variant hidden min-[400px]:inline">Streak:</span><span class="text-primary font-bold" id="header-streak-badge">0</span>
+      </div>
+      <div class="h-4 w-0.5 bg-surface-container-highest hidden min-[400px]:block"></div>
+      <button class="flex items-center justify-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors p-2 rounded focus:outline-none min-h-[44px] min-w-[44px]" id="header-sound-btn" onclick="toggleAudioEngine()" title="Toggle Metronome Click" aria-label="Toggle sound">
+        <span class="material-symbols-outlined text-[20px] text-primary" id="sound-icon">volume_up</span>
+        <span class="font-label-mono-sm text-label-mono-sm hidden md:inline" id="sound-label">Tick On</span>
+      </button>
+      <button class="flex items-center justify-center gap-1 hover:opacity-80 transition-opacity p-2 rounded focus:outline-none min-h-[44px] min-w-[44px]" id="header-enharmonic-btn" onclick="toggleEnharmonicMode()" title="Toggle Sharps/Flats" aria-label="Toggle sharps and flats">
+        <span class="font-label-mono-sm text-label-mono-sm font-bold" id="enharmonic-sharp">♯</span>
+        <span class="font-label-mono-sm text-label-mono-sm text-surface-bright">/</span>
+        <span class="font-label-mono-sm text-label-mono-sm" id="enharmonic-flat">♭</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="w-full pt-16 bg-background">
+<div class="flex flex-col w-full">
+
+<!-- Telemetry strip -->
+<section class="w-full bg-surface-container-lowest border-b border-surface-container-high">
+  <div class="max-w-7xl mx-auto px-4 sm:px-gutter py-2 grid grid-cols-3 gap-2 font-label-mono-sm text-label-mono-sm">
+    <div class="flex items-center gap-1.5 text-on-surface-variant truncate"><span class="material-symbols-outlined text-[16px] text-tertiary hidden min-[400px]:inline">stacked_bar_chart</span><span class="truncate">Total: <span id="stat-total-notes" class="text-on-surface font-bold">0</span></span></div>
+    <div class="flex items-center gap-1.5 text-on-surface-variant justify-center truncate"><span class="material-symbols-outlined text-[16px] text-primary hidden min-[400px]:inline">local_fire_department</span><span class="truncate">Streak: <span id="stat-streak" class="text-on-surface font-bold">0</span></span></div>
+    <div class="flex items-center gap-1.5 text-on-surface-variant justify-end truncate"><span class="material-symbols-outlined text-[16px] text-secondary hidden min-[400px]:inline">speed</span><span class="truncate">Pace: <span id="stat-pace" class="text-on-surface font-bold">30 BPM</span></span></div>
+  </div>
+</section>
+
+<!-- Training Mode Tabs -->
+<section class="w-full bg-surface-container-low px-4 sm:px-gutter py-3 shadow-sm">
+  <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div class="grid grid-cols-3 sm:flex sm:items-center bg-surface-container-lowest p-1 rounded-xl shadow-inner w-full sm:w-auto gap-1 sm:gap-0" role="tablist">
+      <button class="px-2 sm:px-space-md py-2.5 sm:py-space-xs rounded-lg font-label-mono-sm text-label-mono-sm transition-all bg-primary-container text-on-primary font-bold shadow-md min-h-[44px] truncate" id="mode-auto" onclick="setTrainingMode('auto')">Continuous</button>
+      <button class="px-2 sm:px-space-md py-2.5 sm:py-space-xs rounded-lg font-label-mono-sm text-label-mono-sm transition-all text-on-surface-variant hover:text-on-surface min-h-[44px] truncate" id="mode-recall" onclick="setTrainingMode('recall')">Recall &amp; Reveal</button>
+      <button class="px-2 sm:px-space-md py-2.5 sm:py-space-xs rounded-lg font-label-mono-sm text-label-mono-sm transition-all text-on-surface-variant hover:text-on-surface min-h-[44px] truncate" id="mode-manual" onclick="setTrainingMode('manual')">Manual</button>
+    </div>
+    <div class="flex items-center justify-center sm:justify-end gap-space-sm text-on-surface-variant font-label-mono-sm text-label-mono-sm">
+      <span class="w-2 h-2 rounded-full bg-secondary" id="audio-engine-dot"></span>
+      <span class="text-surface-bright" id="active-mode-label">CONTINUOUS FLASH</span>
+    </div>
+  </div>
+</section>
+
+<main class="w-full px-4 sm:px-gutter py-4 sm:py-space-lg">
+<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-space-lg items-start">
+
+<!-- LEFT CONTROL PANEL -->
+<div class="lg:col-span-3 flex flex-col gap-4 sm:gap-space-md order-2 lg:order-1 min-w-0">
+
+  <div class="bg-surface-container-low p-4 sm:p-space-md rounded-xl shadow-lg flex flex-col gap-space-md">
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-label-mono-sm text-label-mono-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-space-xs truncate">
+        <span class="material-symbols-outlined text-[16px] text-primary shrink-0">speed</span> <span class="truncate">Flash Interval</span>
+      </span>
+      <span class="font-label-mono-md text-label-mono-md text-primary font-bold shrink-0" id="interval-display-badge">2.0s</span>
+    </div>
+    <div class="bg-surface-container-lowest p-space-sm rounded-lg flex items-center justify-between gap-2">
+      <span class="font-body-sm text-body-sm text-on-surface-variant truncate">Metronome Cadence:</span>
+      <span class="font-label-mono-sm text-label-mono-sm text-secondary font-bold shrink-0" id="bpm-calculation-text">30.0 BPM</span>
+    </div>
+    <div class="flex flex-col gap-space-xs">
+      <div class="flex justify-between font-label-mono-sm text-label-mono-sm text-on-surface-variant">
+        <span>0.4s (High Gear)</span><span>6.0s (Paced)</span>
+      </div>
+      <input class="w-full h-8 bg-transparent rounded-lg appearance-none cursor-pointer accent-primary-container" id="interval-slider" max="6.0" min="0.4" oninput="handleIntervalSlider(this.value)" step="0.1" type="range" value="2.0" aria-label="Flash interval seconds">
+    </div>
+    <div class="grid grid-cols-4 gap-2 pt-space-xs">
+      <button class="py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded-md font-label-mono-sm text-label-mono-sm transition-colors text-center min-h-[44px]" onclick="setIntervalValue(0.8)">0.8s</button>
+      <button class="py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded-md font-label-mono-sm text-label-mono-sm transition-colors text-center min-h-[44px]" onclick="setIntervalValue(1.5)">1.5s</button>
+      <button class="py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded-md font-label-mono-sm text-label-mono-sm transition-colors text-center min-h-[44px]" onclick="setIntervalValue(2.0)">2.0s</button>
+      <button class="py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded-md font-label-mono-sm text-label-mono-sm transition-colors text-center min-h-[44px]" onclick="setIntervalValue(3.5)">3.5s</button>
+    </div>
+  </div>
+
+  <div class="bg-surface-container-low p-4 sm:p-space-md rounded-xl shadow-lg flex flex-col gap-space-sm">
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-label-mono-sm text-label-mono-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-space-xs truncate">
+        <span class="material-symbols-outlined text-[16px] text-tertiary shrink-0">linear_scale</span> <span class="truncate">Target Strings</span>
+      </span>
+      <button class="font-label-mono-sm text-label-mono-sm text-tertiary hover:underline min-h-[44px] px-2 shrink-0" onclick="selectAllStrings()">All</button>
+    </div>
+    <div class="grid grid-cols-6 gap-1.5 sm:gap-space-xs">
+      <button class="string-toggle-pill py-2 min-h-[52px] rounded-lg font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container flex flex-col items-center justify-center" id="str-pill-1" onclick="toggleStringFilter(1)"><span>1st</span><span class="text-[9px] opacity-80">E</span></button>
+      <button class="string-toggle-pill py-2 min-h-[52px] rounded-lg font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container flex flex-col items-center justify-center" id="str-pill-2" onclick="toggleStringFilter(2)"><span>2nd</span><span class="text-[9px] opacity-80">B</span></button>
+      <button class="string-toggle-pill py-2 min-h-[52px] rounded-lg font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container flex flex-col items-center justify-center" id="str-pill-3" onclick="toggleStringFilter(3)"><span>3rd</span><span class="text-[9px] opacity-80">G</span></button>
+      <button class="string-toggle-pill py-2 min-h-[52px] rounded-lg font-label-mono-sm text-label-mono-sm font-bold transition-all flex flex-col items-center justify-center bg-primary-container text-on-primary-container" id="str-pill-4" onclick="toggleStringFilter(4)"><span>4th</span><span class="text-[9px] opacity-80">D</span></button>
+      <button class="string-toggle-pill py-2 min-h-[52px] rounded-lg font-label-mono-sm text-label-mono-sm font-bold transition-all flex flex-col items-center justify-center bg-primary-container text-on-primary-container" id="str-pill-5" onclick="toggleStringFilter(5)"><span>5th</span><span class="text-[9px] opacity-80">A</span></button>
+      <button class="string-toggle-pill py-2 min-h-[52px] rounded-lg font-label-mono-sm text-label-mono-sm font-bold transition-all flex flex-col items-center justify-center bg-primary-container text-on-primary-container" id="str-pill-6" onclick="toggleStringFilter(6)"><span>6th</span><span class="text-[9px] opacity-80">E</span></button>
+    </div>
+    <div class="flex flex-col min-[420px]:flex-row min-[420px]:items-center gap-1.5 sm:gap-space-xs pt-space-xs">
+      <button class="flex-1 py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded font-label-mono-sm text-label-mono-sm transition-colors text-center min-h-[44px] px-2" onclick="isolateStrings([5,6])">Roots E/A</button>
+      <button class="flex-1 py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded font-label-mono-sm text-label-mono-sm transition-colors text-center min-h-[44px] px-2" onclick="isolateStrings([1,2,3])">Treble 1-3</button>
+      <button class="flex-1 py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded font-label-mono-sm text-label-mono-sm transition-colors text-center min-h-[44px] px-2" onclick="isolateStrings([3,4])">Middle D/G</button>
+    </div>
+  </div>
+
+  <div class="bg-surface-container-low p-4 sm:p-space-md rounded-xl shadow-lg flex flex-col gap-space-sm">
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-label-mono-sm text-label-mono-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-space-xs truncate">
+        <span class="material-symbols-outlined text-[16px] text-secondary shrink-0">music_note</span> <span class="truncate">Pitch Palette</span>
+      </span>
+      <span class="font-label-mono-sm text-label-mono-sm text-on-surface shrink-0" id="active-notes-count">12 / 12 Active</span>
+    </div>
+    <div class="grid grid-cols-3 gap-1.5 sm:gap-space-xs">
+      <button class="py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded font-label-mono-sm text-label-mono-sm transition-colors min-h-[44px]" onclick="selectNotePreset('all')">All 12</button>
+      <button class="py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded font-label-mono-sm text-label-mono-sm transition-colors min-h-[44px]" onclick="selectNotePreset('natural')">Naturals</button>
+      <button class="py-2.5 bg-surface-container-high hover:bg-surface-container active:bg-surface-container text-on-surface rounded font-label-mono-sm text-label-mono-sm transition-colors min-h-[44px]" onclick="selectNotePreset('accidentals')">Accidentals</button>
+    </div>
+    <div class="grid grid-cols-4 gap-1.5 sm:gap-space-xs pt-space-xs">
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-0" onclick="toggleNoteFilter(0)">C</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-1" onclick="toggleNoteFilter(1)">C♯</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-2" onclick="toggleNoteFilter(2)">D</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-3" onclick="toggleNoteFilter(3)">D♯</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-4" onclick="toggleNoteFilter(4)">E</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-5" onclick="toggleNoteFilter(5)">F</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-6" onclick="toggleNoteFilter(6)">F♯</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-7" onclick="toggleNoteFilter(7)">G</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-8" onclick="toggleNoteFilter(8)">G♯</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-9" onclick="toggleNoteFilter(9)">A</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-10" onclick="toggleNoteFilter(10)">A♯</button>
+      <button class="note-toggle-pill py-2.5 min-h-[44px] rounded font-label-mono-sm text-label-mono-sm font-bold transition-all bg-primary-container text-on-primary-container" id="note-btn-11" onclick="toggleNoteFilter(11)">B</button>
+    </div>
+  </div>
+</div>
+
+<!-- CENTER COMMAND DISPLAY -->
+<div class="lg:col-span-9 flex flex-col gap-4 sm:gap-space-lg order-1 lg:order-2 min-w-0">
+
+  <div class="relative w-full bg-surface-container-lowest rounded-2xl p-4 sm:p-space-lg md:p-space-xl overflow-hidden shadow-2xl flex flex-col justify-between min-h-[300px] sm:min-h-[360px] md:min-h-[400px] transition-all duration-150" id="flash-card-pod">
+    <div class="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-primary-container/10 blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-tertiary/10 blur-3xl pointer-events-none"></div>
+    <div class="relative z-10 flex items-center justify-between w-full flex-wrap gap-2">
+      <div class="flex items-center gap-space-sm">
+        <span class="w-2.5 h-2.5 rounded-full bg-primary-container animate-ping" id="status-dot"></span>
+        <span class="font-label-mono-sm text-label-mono-sm uppercase tracking-widest text-primary" id="flash-status-text">TRAINER PAUSED • IDLE</span>
+      </div>
+      <button class="flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container-high hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-all" id="reveal-toggle-pill" onclick="toggleManualReveal()">
+        <span class="material-symbols-outlined text-[16px]" id="reveal-pill-icon">visibility</span>
+        <span class="font-label-mono-sm text-label-mono-sm" id="reveal-pill-label">Fret Guide: AUTO</span>
+      </button>
+    </div>
+
+    <div class="relative z-10 my-4 sm:my-space-lg flex flex-col sm:flex-row items-center justify-around gap-4 sm:gap-space-lg">
+      <div class="flex flex-col items-center text-center w-full sm:w-auto min-w-0">
+        <span class="font-label-mono-sm text-label-mono-sm uppercase tracking-widest text-on-surface-variant mb-space-xs">TARGET STRING</span>
+        <div class="flex items-baseline justify-center gap-space-xs">
+          <span class="font-display-flash text-display-flash font-extrabold text-on-surface leading-none" id="flash-string-number">5</span>
+          <span class="font-headline-md text-headline-md text-primary font-bold" id="flash-string-ordinal">th</span>
+        </div>
+        <span class="mt-space-xs font-label-mono-md text-label-mono-md text-tertiary font-bold bg-surface-container-high px-3 sm:px-space-md py-1 rounded-full shadow-inner max-w-full" id="flash-string-tuning">A String (110.0 Hz)</span>
+      </div>
+      <div class="hidden sm:flex flex-col items-center justify-center h-32 w-12 text-surface-bright shrink-0">
+        <div class="h-full w-0.5 bg-surface-container-high"></div>
+        <span class="material-symbols-outlined text-primary my-1 text-[20px]">bolt</span>
+        <div class="h-full w-0.5 bg-surface-container-high"></div>
+      </div>
+      <div class="w-10 h-0.5 bg-surface-container-high rounded-full sm:hidden shrink-0" aria-hidden="true"></div>
+      <div class="flex flex-col items-center text-center w-full sm:w-auto min-w-0">
+        <span class="font-label-mono-sm text-label-mono-sm uppercase tracking-widest text-on-surface-variant mb-space-xs">MUSICAL PITCH</span>
+        <div class="flex items-baseline justify-center gap-space-xs min-w-0">
+          <span class="font-display-flash text-display-flash font-extrabold text-primary-container leading-none drop-shadow-[0_0_24px_rgba(249,115,22,0.4)]" id="flash-note-name">D</span>
+          <span class="hidden font-headline-sm text-headline-sm text-on-surface-variant font-bold" id="flash-enharmonic-sub"></span>
+        </div>
+        <span class="mt-space-xs font-label-mono-md text-label-mono-md font-bold bg-surface-container-high px-3 sm:px-space-md py-1 rounded-full shadow-inner text-secondary max-w-full" id="flash-solution-fret">Fret Position: 5th Fret</span>
+      </div>
+    </div>
+
+    <div class="relative z-10 w-full flex flex-col gap-space-xs">
+      <div class="flex flex-col min-[420px]:flex-row min-[420px]:justify-between min-[420px]:items-center gap-1 font-label-mono-sm text-label-mono-sm text-on-surface-variant">
+        <span id="flash-time-remaining" class="truncate">PRESS START TO BEGIN</span>
+        <span class="text-surface-bright shrink-0" id="flash-prompt-id">CARD ID: #FRET-000</span>
+      </div>
+      <div class="w-full h-2.5 bg-surface-container-highest rounded-full overflow-hidden p-0.5 shadow-inner">
+        <div class="h-full bg-gradient-to-r from-tertiary via-primary-container to-secondary rounded-full transition-all duration-75" id="flash-progress-bar" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="w-full bg-surface-container-low p-4 sm:p-space-md rounded-xl shadow-lg flex flex-col gap-3">
+    <div class="flex items-stretch sm:items-center gap-2 flex-col sm:flex-row sm:flex-wrap">
+      <button class="flex items-center justify-center gap-space-sm w-full sm:w-auto px-space-xl py-3 sm:py-space-md rounded-xl hover:opacity-95 font-headline-sm text-headline-sm font-bold shadow-[0_0_20px_rgba(249,115,22,0.35)] active:translate-y-0.5 transition-all bg-primary-container text-on-primary min-h-[52px]" id="transport-main-btn" onclick="toggleTrainerEngine()">
+        <span class="material-symbols-outlined text-[28px]" id="transport-icon">play_arrow</span>
+        <span id="transport-label">START RIG</span>
+      </button>
+      <div class="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+      <button class="flex items-center justify-center gap-space-xs px-3 sm:px-space-lg py-3 sm:py-space-md rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface font-label-mono-md text-label-mono-md active:translate-y-0.5 transition-all shadow-sm min-h-[48px]" onclick="advanceNextPrompt(true)">
+        <span class="material-symbols-outlined text-[20px] text-tertiary">skip_next</span>
+        <span class="truncate">NEXT</span>
+      </button>
+      <button id="peek-btn" class="flex items-center justify-center gap-space-xs px-3 sm:px-space-md py-3 sm:py-space-md rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-label-mono-md text-label-mono-md active:translate-y-0.5 transition-all shadow-sm min-h-[48px]" onclick="toggleAnswerVisibility()">
+        <span class="material-symbols-outlined text-[20px] text-secondary" id="peek-btn-icon">lightbulb</span>
+        <span id="peek-btn-label" class="truncate">PEEK ANSWER</span>
+      </button>
+      </div>
+      <button class="flex items-center justify-center gap-space-xs px-space-md py-2.5 sm:py-space-md rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-label-mono-md text-label-mono-md active:translate-y-0.5 transition-all shadow-sm min-h-[44px] w-full sm:w-auto" onclick="resetStats()" title="Reset counters">
+        <span class="material-symbols-outlined text-[20px]">restart_alt</span>
+        <span>RESET</span>
+      </button>
+    </div>
+    <div class="hidden xl:flex items-center gap-space-md text-on-surface-variant font-label-mono-sm text-label-mono-sm">
+      <span class="flex items-center gap-1"><kbd class="bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface font-mono">SPACE</kbd> Advance</span>
+      <span class="flex items-center gap-1"><kbd class="bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface font-mono">P</kbd> Pause/Play</span>
+      <span class="flex items-center gap-1"><kbd class="bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface font-mono">R</kbd> Peek</span>
+    </div>
+  </div>
+
+  <div class="w-full bg-surface-container-low p-4 sm:p-space-md rounded-xl shadow-lg flex flex-col gap-space-xs min-w-0">
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-label-mono-sm text-label-mono-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-space-xs truncate">
+        <span class="material-symbols-outlined text-[16px] text-primary shrink-0">history</span> <span class="truncate">Flash Trail (Last 6)</span>
+      </span>
+      <span class="font-label-mono-sm text-label-mono-sm text-surface-bright shrink-0 hidden min-[420px]:inline">Click card to review</span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-space-sm pt-space-xs" id="history-trail-strip"></div>
+  </div>
+
+  <div class="w-full bg-surface-container-low p-4 sm:p-space-md md:p-space-lg rounded-2xl shadow-xl flex flex-col gap-space-md min-w-0">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+      <div class="flex items-center gap-space-sm min-w-0">
+        <div class="w-3 h-3 rounded-full bg-secondary shadow-[0_0_10px_rgba(78,222,163,0.8)] shrink-0"></div>
+        <h2 class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">Interactive 15-Fret Neck</h2>
+      </div>
+      <span class="font-label-mono-sm text-label-mono-sm text-on-surface-variant">Standard Tuning: E2 • A2 • D3 • G3 • B3 • E4</span>
+    </div>
+    <p class="sm:hidden font-label-mono-sm text-label-mono-sm text-tertiary flex items-center gap-1 fret-scroll-hint">Swipe neck sideways to reach high frets <span class="material-symbols-outlined text-[16px]">swipe_right</span></p>
+    <div class="w-full overflow-x-auto fret-scroll pb-space-sm select-none -mx-1 px-1" id="fret-scroll-wrap">
+      <div class="min-w-[680px] sm:min-w-[760px] w-full bg-surface-container-lowest p-3 sm:p-space-md rounded-xl shadow-inner relative flex flex-col gap-0">
+        <div class="grid grid-cols-[50px_repeat(15,minmax(0,1fr))] text-center font-label-mono-sm text-label-mono-sm text-on-surface-variant mb-1" id="fret-numbers-header"></div>
+        <div class="relative rounded-lg overflow-hidden bg-gradient-to-r from-surface-container to-surface-container-low shadow-2xl py-space-sm flex flex-col justify-between min-h-[210px]" id="fretboard-canvas">
+          <div class="absolute top-1/2 -translate-y-1/2 left-[21.8%] w-3.5 h-3.5 rounded-full bg-surface-bright pointer-events-none opacity-40 shadow-inner"></div>
+          <div class="absolute top-1/2 -translate-y-1/2 left-[34.4%] w-3.5 h-3.5 rounded-full bg-surface-bright pointer-events-none opacity-40 shadow-inner"></div>
+          <div class="absolute top-1/2 -translate-y-1/2 left-[46.8%] w-3.5 h-3.5 rounded-full bg-surface-bright pointer-events-none opacity-40 shadow-inner"></div>
+          <div class="absolute top-1/2 -translate-y-1/2 left-[59.4%] w-3.5 h-3.5 rounded-full bg-surface-bright pointer-events-none opacity-40 shadow-inner"></div>
+          <div class="absolute top-[28%] -translate-y-1/2 left-[78.1%] w-3.5 h-3.5 rounded-full bg-secondary-container pointer-events-none opacity-70 shadow-[0_0_8px_rgba(0,165,114,0.5)]"></div>
+          <div class="absolute top-[72%] -translate-y-1/2 left-[78.1%] w-3.5 h-3.5 rounded-full bg-secondary-container pointer-events-none opacity-70 shadow-[0_0_8px_rgba(0,165,114,0.5)]"></div>
+          <div class="absolute top-1/2 -translate-y-1/2 left-[96.8%] w-3.5 h-3.5 rounded-full bg-surface-bright pointer-events-none opacity-40 shadow-inner"></div>
+          <div class="relative z-10 w-full h-full flex flex-col justify-between py-1 gap-0" id="strings-wire-container"></div>
+        </div>
+        <div class="grid grid-cols-[50px_repeat(15,minmax(0,1fr))] text-center font-label-mono-sm text-label-mono-sm text-surface-bright mt-2" id="fret-legend-footer"></div>
+      </div>
+    </div>
+    <p class="font-body-sm text-body-sm text-on-surface-variant">Tip: orange discs = current answer positions on the target string. Tap any fret to hear it. In Recall mode the answer stays hidden for the first half of each interval.</p>
+  </div>
+
+  <footer class="w-full text-center font-label-mono-sm text-label-mono-sm text-surface-bright py-space-md">
+    FretFlash Trainer • Space = Next • P = Play/Pause • R = Peek • Built for fretboard fluency
+  </footer>
+
+</div>
+</div>
+</main>
+</div>
+</main>
+
+<script>
+'use strict';
+/* ============ FRETFLASH ENGINE ============ */
+let audioCtx = null;
+let isSoundEnabled = true;
+
+function initAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTone(frequency, type, duration, gainValue) {
+  type = type || 'sine'; duration = duration || 0.12; gainValue = gainValue || 0.15;
+  if (!isSoundEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+    gain.gain.setValueAtTime(gainValue, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + duration);
+  } catch (e) { console.warn('WebAudio error:', e); }
+}
+
+function playMetronomeClick(accent) {
+  if (accent) playTone(1050, 'triangle', 0.08, 0.25);
+  else playTone(650, 'sine', 0.05, 0.15);
+}
+
+/* Music theory: semitone index C=0..B=11 */
+const SHARP_NAMES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+const FLAT_NAMES  = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
+const SHARP_ASCII = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+const STRING_OPEN_NOTES = {
+  1: { noteIndex: 4,  label: 'High E', freq: 329.63 },
+  2: { noteIndex: 11, label: 'B',      freq: 246.94 },
+  3: { noteIndex: 7,  label: 'G',      freq: 196.00 },
+  4: { noteIndex: 2,  label: 'D',      freq: 146.83 },
+  5: { noteIndex: 9,  label: 'A',      freq: 110.00 },
+  6: { noteIndex: 4,  label: 'Low E',  freq: 82.41  }
+};
+
+function ordinal(n) {
+  if (n === 1) return 'st';
+  if (n === 2) return 'nd';
+  if (n === 3) return 'rd';
+  return 'th';
+}
+function fretLabel(f) { return f === 0 ? 'Open' : f + ordinal(f); }
+
+/* State */
+let activeStrings = [1,2,3,4,5,6];
+let activeNotes = [0,1,2,3,4,5,6,7,8,9,10,11];
+let useSharps = true;
+let intervalSeconds = 2.0;
+let trainingMode = 'auto';
+let isRunning = false;
+let showFretGuide = true;
+let manualRevealPeek = false;
+let peekOverride = null; // null = follow mode/guide, true = force show, false = force hide
+
+let progressAnimationId = null;
+let flashStartTime = 0;
+let revealedThisCard = false;
+let currentCard = { stringNum: 5, noteIndex: 2, fret: 5 };
+let stats = { totalFlashes: 0, streak: 0 };
+let historyTrail = [];
+
+/* DOM refs */
+const $ = function(id){ return document.getElementById(id); };
+const flashCardPod = $('flash-card-pod');
+const flashStringNumber = $('flash-string-number');
+const flashStringOrdinal = $('flash-string-ordinal');
+const flashStringTuning = $('flash-string-tuning');
+const flashNoteName = $('flash-note-name');
+const flashEnharmonicSub = $('flash-enharmonic-sub');
+const flashSolutionFret = $('flash-solution-fret');
+const flashProgressBar = $('flash-progress-bar');
+const flashTimeRemaining = $('flash-time-remaining');
+const flashPromptId = $('flash-prompt-id');
+const flashStatusText = $('flash-status-text');
+const transportMainBtn = $('transport-main-btn');
+const transportIcon = $('transport-icon');
+const transportLabel = $('transport-label');
+const intervalSlider = $('interval-slider');
+const intervalDisplayBadge = $('interval-display-badge');
+const bpmCalculationText = $('bpm-calculation-text');
+
+/* ---------- Fretboard ---------- */
+function buildFretboard() {
+  const container = $('strings-wire-container');
+  container.innerHTML = '';
+  const gauges = {
+    1: 'h-[1.5px] bg-slate-300 opacity-90',
+    2: 'h-[2px] bg-slate-300 opacity-90',
+    3: 'h-[2.5px] bg-amber-200/90',
+    4: 'h-[3px] bg-amber-200/90 shadow-sm',
+    5: 'h-[3.5px] bg-stone-300 shadow-sm',
+    6: 'h-[4.5px] bg-stone-300 shadow-sm'
+  };
+  for (let s = 1; s <= 6; s++) {
+    const row = document.createElement('div');
+    row.className = 'relative w-full flex items-center h-9 sm:h-7 group';
+    const wire = document.createElement('div');
+    wire.className = 'absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none z-0 ' + gauges[s];
+    row.appendChild(wire);
+    const grid = document.createElement('div');
+    grid.className = 'relative z-10 w-full grid grid-cols-[50px_repeat(15,minmax(0,1fr))] h-full items-center';
+    for (let fret = 0; fret <= 15; fret++) {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.id = 'fret-cell-' + s + '-' + fret;
+      cell.className = 'fret-cell relative w-full h-full flex items-center justify-center focus:outline-none transition-transform active:scale-95';
+      cell.title = 'String ' + s + ', Fret ' + fret + ' — click to hear';
+      const sep = document.createElement('span');
+      sep.className = fret === 0
+        ? 'absolute right-0 top-0 bottom-0 w-[4px] bg-primary-fixed pointer-events-none shadow-sm'
+        : 'absolute right-0 top-0 bottom-0 w-[2px] bg-surface-bright pointer-events-none opacity-60';
+      cell.appendChild(sep);
+      const noteIdx = (STRING_OPEN_NOTES[s].noteIndex + fret) % 12;
+      const marker = document.createElement('div');
+      marker.id = 'marker-' + s + '-' + fret;
+      marker.className = 'note-marker w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center font-label-mono-sm text-label-mono-sm font-bold opacity-0 transition-all scale-75 shadow-md';
+      marker.innerText = displayName(noteIdx);
+      cell.appendChild(marker);
+      (function(ss, ff){ cell.addEventListener('click', function(){ auditionFret(ss, ff); }); })(s, fret);
+      grid.appendChild(cell);
+    }
+    row.appendChild(grid);
+    container.appendChild(row);
+  }
+  buildFretHeaders();
+}
+
+function buildFretHeaders() {
+  const head = $('fret-numbers-header');
+  const foot = $('fret-legend-footer');
+  head.innerHTML = ''; foot.innerHTML = '';
+  const dots = {3:1,5:1,7:1,9:1,12:2,15:1};
+  const nut = document.createElement('span'); nut.className = 'text-surface-bright'; nut.innerText = 'NUT'; head.appendChild(nut);
+  const f0 = document.createElement('span'); f0.innerText = '0'; foot.appendChild(f0);
+  for (let f = 1; f <= 15; f++) {
+    const h = document.createElement('span');
+    h.innerText = String(f);
+    if (dots[f]) h.className = (f === 12 ? 'text-secondary font-bold' : 'text-primary font-bold');
+    head.appendChild(h);
+    const fl = document.createElement('span');
+    fl.innerText = dots[f] === 2 ? '••' : '•';
+    if (dots[f]) fl.className = (f === 12 ? 'text-secondary' : 'text-primary');
+    foot.appendChild(fl);
+  }
+}
+
+function displayName(idx) { return useSharps ? SHARP_NAMES[idx] : FLAT_NAMES[idx]; }
+function altName(idx) { return useSharps ? FLAT_NAMES[idx] : SHARP_NAMES[idx]; }
+
+function refreshMarkerLabels() {
+  for (let s = 1; s <= 6; s++) {
+    for (let f = 0; f <= 15; f++) {
+      const m = $('marker-' + s + '-' + f);
+      if (m) m.innerText = displayName((STRING_OPEN_NOTES[s].noteIndex + f) % 12);
+    }
+  }
+  for (let i = 0; i < 12; i++) {
+    const b = $('note-btn-' + i);
+    if (b) b.innerText = displayName(i);
+  }
+}
+
+function getFretFrequency(stringNum, fret) {
+  return STRING_OPEN_NOTES[stringNum].freq * Math.pow(2, fret / 12);
+}
+
+function auditionFret(stringNum, fret) {
+  playTone(getFretFrequency(stringNum, fret), 'triangle', 0.5, 0.35);
+  const marker = $('marker-' + stringNum + '-' + fret);
+  if (!marker || marker.classList.contains('active-target-fret')) return;
+  marker.classList.remove('opacity-0','scale-75');
+  marker.classList.add('bg-tertiary','text-on-tertiary','opacity-100','scale-100');
+  setTimeout(function(){
+    if (!marker.classList.contains('active-target-fret')) {
+      marker.classList.add('opacity-0','scale-75');
+      marker.classList.remove('bg-tertiary','text-on-tertiary','opacity-100','scale-100');
+    }
+  }, 600);
+}
+
+/* ---------- Highlight ---------- */
+function matchingFretsOnString(s, targetNote) {
+  const out = [];
+  for (let f = 0; f <= 15; f++) {
+    if ((STRING_OPEN_NOTES[s].noteIndex + f) % 12 === targetNote) out.push(f);
+  }
+  return out;
+}
+
+function isAnswerShown() {
+  if (peekOverride !== null) return peekOverride;
+  if (!showFretGuide) return false;
+  if (trainingMode === 'recall' && !manualRevealPeek) return false;
+  return true;
+}
+
+function updatePeekButton() {
+  const label = $('peek-btn-label');
+  const icon = $('peek-btn-icon');
+  const shown = isAnswerShown();
+  if (label) label.innerText = shown ? 'HIDE ANSWER' : 'PEEK ANSWER';
+  if (icon) icon.innerText = shown ? 'visibility_off' : 'lightbulb';
+}
+
+function highlightFretboardTarget() {
+  document.querySelectorAll('.note-marker').forEach(function(m){
+    m.classList.remove('active-target-fret','opacity-100','scale-100','bg-primary-container','text-on-primary-container','shadow-[0_0_14px_rgba(249,115,22,0.9)]');
+    if (!m.classList.contains('bg-tertiary')) m.classList.add('opacity-0','scale-75');
+  });
+  if (!isAnswerShown()) {
+    flashSolutionFret.innerText = 'Fret Position: Hidden — recall it, then peek (R)';
+    flashSolutionFret.classList.remove('text-secondary');
+    flashSolutionFret.classList.add('text-on-surface-variant');
+    updatePeekButton();
+    return;
+  }
+  const frets = matchingFretsOnString(currentCard.stringNum, currentCard.noteIndex);
+  frets.forEach(function(f){
+    const marker = $('marker-' + currentCard.stringNum + '-' + f);
+    if (marker) {
+      marker.classList.add('active-target-fret','opacity-100','scale-100','bg-primary-container','text-on-primary-container','shadow-[0_0_14px_rgba(249,115,22,0.9)]');
+      marker.classList.remove('opacity-0','scale-75','bg-tertiary','text-on-tertiary');
+    }
+  });
+  if (frets.length) {
+    flashSolutionFret.innerText = 'Fret Position: ' + frets.map(fretLabel).join('  &  ');
+    flashSolutionFret.classList.add('text-secondary');
+    flashSolutionFret.classList.remove('text-on-surface-variant');
+  }
+  updatePeekButton();
+}
+
+/* ---------- Cards ---------- */
+function generateNextCard() {
+  if (!activeStrings.length) selectAllStrings();
+  if (!activeNotes.length) selectNotePreset('all');
+  let ns = currentCard.stringNum, nn = currentCard.noteIndex, tries = 0;
+  const combos = activeStrings.length * activeNotes.length;
+  do {
+    ns = activeStrings[Math.floor(Math.random() * activeStrings.length)];
+    nn = activeNotes[Math.floor(Math.random() * activeNotes.length)];
+    tries++;
+  } while (tries < 12 && combos > 1 && ns === currentCard.stringNum && nn === currentCard.noteIndex);
+  let fret = 0;
+  for (let f = 0; f <= 15; f++) {
+    if ((STRING_OPEN_NOTES[ns].noteIndex + f) % 12 === nn) { fret = f; break; }
+  }
+  currentCard = { stringNum: ns, noteIndex: nn, fret: fret };
+  manualRevealPeek = (trainingMode !== 'recall');
+  revealedThisCard = (trainingMode !== 'recall');
+  peekOverride = null; // new card resets manual peek/hide
+  stats.totalFlashes++;
+  stats.streak++;
+  saveStats();
+  updateStatsUI();
+  renderCurrentCard();
+  pushHistoryTrail(currentCard);
+  playMetronomeClick(true);
+  // also play the actual pitch quietly for ear training
+  playTone(getFretFrequency(ns, fret), 'sine', 0.35, 0.10);
+}
+
+function renderCurrentCard() {
+  flashStringNumber.innerText = String(currentCard.stringNum);
+  flashStringOrdinal.innerText = ordinal(currentCard.stringNum);
+  const info = STRING_OPEN_NOTES[currentCard.stringNum];
+  flashStringTuning.innerText = info.label + ' String (' + info.freq.toFixed(1) + ' Hz)';
+  const primary = displayName(currentCard.noteIndex);
+  const alt = altName(currentCard.noteIndex);
+  flashNoteName.innerText = primary;
+  if (primary !== alt) {
+    flashEnharmonicSub.innerText = '(' + alt + ')';
+    flashEnharmonicSub.classList.remove('hidden');
+  } else {
+    flashEnharmonicSub.classList.add('hidden');
+  }
+  flashPromptId.innerText = 'CARD ID: #FRET-' + String(stats.totalFlashes).padStart(3, '0');
+  flashCardPod.classList.add('scale-[1.008]');
+  setTimeout(function(){ flashCardPod.classList.remove('scale-[1.008]'); }, 120);
+  highlightFretboardTarget();
+}
+
+function pushHistoryTrail(card) {
+  historyTrail.unshift({ stringNum: card.stringNum, noteIndex: card.noteIndex, fret: card.fret, name: displayName(card.noteIndex) });
+  if (historyTrail.length > 6) historyTrail.pop();
+  const strip = $('history-trail-strip');
+  strip.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const item = historyTrail[i];
+    const el = document.createElement('button');
+    el.type = 'button';
+    if (item) {
+      el.className = 'bg-surface-container-lowest hover:bg-surface-container-high p-space-sm rounded-lg flex flex-col items-center justify-center transition-all shadow-sm border border-transparent hover:border-primary-container/40';
+      el.innerHTML = '<span class="font-label-mono-sm text-label-mono-sm text-on-surface-variant">' + item.stringNum + ordinal(item.stringNum) + ' Str</span>' +
+        '<span class="font-label-mono-lg text-label-mono-lg text-primary font-bold">' + item.name + '</span>' +
+        '<span class="text-[10px] font-mono text-secondary">Fret ' + item.fret + '</span>';
+      (function(c){ el.addEventListener('click', function(){
+        currentCard = { stringNum: c.stringNum, noteIndex: c.noteIndex, fret: c.fret };
+        manualRevealPeek = true;
+        revealedThisCard = true;
+        peekOverride = null;
+        renderCurrentCard();
+      }); })(item);
+    } else {
+      el.className = 'bg-surface-container-lowest p-space-sm rounded-lg flex flex-col items-center justify-center opacity-30 cursor-default';
+      el.innerHTML = '<span class="font-label-mono-sm text-label-mono-sm text-surface-bright">--</span><span class="font-label-mono-md text-label-mono-md text-surface-bright">--</span>';
+    }
+    strip.appendChild(el);
+  }
+}
+
+function renderEmptyHistory() {
+  const strip = $('history-trail-strip');
+  strip.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const el = document.createElement('div');
+    el.className = 'bg-surface-container-lowest p-space-sm rounded-lg flex flex-col items-center justify-center text-on-surface-variant opacity-40';
+    el.innerHTML = '<span class="font-label-mono-sm text-label-mono-sm text-surface-bright">--</span><span class="font-label-mono-md text-label-mono-md">--</span>';
+    strip.appendChild(el);
+  }
+}
+
+/* ---------- Engine loop ---------- */
+function runFlashProgressLoop(timestamp) {
+  if (!isRunning) return;
+  if (trainingMode === 'manual') return; // manual never auto-advances
+  if (!flashStartTime) flashStartTime = timestamp;
+  const elapsed = (timestamp - flashStartTime) / 1000;
+  const progress = Math.min(elapsed / intervalSeconds, 1.0);
+  flashProgressBar.style.width = (progress * 100).toFixed(1) + '%';
+  flashTimeRemaining.innerText = 'NEXT FLASH IN: ' + Math.max(0, intervalSeconds - elapsed).toFixed(1) + 's';
+  if (trainingMode === 'recall' && !revealedThisCard && elapsed >= intervalSeconds * 0.5) {
+    revealedThisCard = true;
+    // Respect an explicit user HIDE override; otherwise auto-reveal
+    if (peekOverride !== false) {
+      manualRevealPeek = true;
+      if (peekOverride === null) highlightFretboardTarget();
+    }
+    playTone(480, 'sine', 0.06, 0.12);
+  }
+  if (elapsed >= intervalSeconds) {
+    flashStartTime = timestamp;
+    generateNextCard();
+  }
+  progressAnimationId = requestAnimationFrame(runFlashProgressLoop);
+}
+
+function toggleTrainerEngine() {
+  initAudio();
+  isRunning = !isRunning;
+  if (isRunning) {
+    transportMainBtn.classList.remove('bg-primary-container','text-on-primary');
+    transportMainBtn.classList.add('bg-error-container','text-on-error-container');
+    transportIcon.innerText = 'pause';
+    transportLabel.innerText = 'PAUSE RIG';
+    flashStatusText.innerText = 'TRAINER ACTIVE • TRANSMITTING';
+    flashStatusText.classList.add('text-secondary');
+    flashStatusText.classList.remove('text-primary');
+    const dot = $('status-dot');
+    if (dot) { dot.classList.remove('bg-primary-container'); dot.classList.add('bg-secondary'); }
+    flashStartTime = 0;
+    if (stats.totalFlashes === 0) generateNextCard();
+    else { manualRevealPeek = trainingMode !== 'recall'; revealedThisCard = (trainingMode !== 'recall'); peekOverride = null; highlightFretboardTarget(); }
+    cancelAnimationFrame(progressAnimationId);
+    progressAnimationId = requestAnimationFrame(runFlashProgressLoop);
+    if (trainingMode === 'manual') {
+      flashTimeRemaining.innerText = 'MANUAL MODE — PRESS SPACE FOR NEXT';
+      flashProgressBar.style.width = '100%';
+    }
+  } else {
+    transportMainBtn.classList.add('bg-primary-container','text-on-primary');
+    transportMainBtn.classList.remove('bg-error-container','text-on-error-container');
+    transportIcon.innerText = 'play_arrow';
+    transportLabel.innerText = 'RESUME RIG';
+    flashStatusText.innerText = 'TRAINER PAUSED • IDLE';
+    flashStatusText.classList.remove('text-secondary');
+    flashStatusText.classList.add('text-primary');
+    const dot = $('status-dot');
+    if (dot) { dot.classList.add('bg-primary-container'); dot.classList.remove('bg-secondary'); }
+    if (progressAnimationId) cancelAnimationFrame(progressAnimationId);
+  }
+}
+
+function advanceNextPrompt(fromClick) {
+  initAudio();
+  flashStartTime = 0;
+  if (trainingMode === 'manual' && !isRunning) {
+    generateNextCard();
+    flashProgressBar.style.width = '100%';
+    flashTimeRemaining.innerText = 'READY FOR NEXT — SPACE TO ADVANCE';
+    return;
+  }
+  generateNextCard();
+  if (!isRunning && fromClick) {
+    flashProgressBar.style.width = '100%';
+    flashTimeRemaining.innerText = 'READY — PRESS START TO RUN AUTO';
+  }
+}
+
+function toggleAnswerVisibility() {
+  initAudio();
+  // True toggle: flip whatever is currently shown, overriding mode/guide
+  peekOverride = !isAnswerShown();
+  if (peekOverride) { manualRevealPeek = true; revealedThisCard = true; }
+  highlightFretboardTarget();
+  playTone(peekOverride ? 720 : 420, 'sine', 0.07, 0.12);
+}
+
+function toggleManualReveal() {
+  showFretGuide = !showFretGuide;
+  peekOverride = null; // changing the master switch clears any peek/hide override
+  $('reveal-pill-icon').innerText = showFretGuide ? 'visibility' : 'visibility_off';
+  $('reveal-pill-label').innerText = showFretGuide ? 'Fret Guide: AUTO' : 'Fret Guide: OFF';
+  highlightFretboardTarget();
+}
+
+/* ---------- Controls ---------- */
+function handleIntervalSlider(val) {
+  intervalSeconds = parseFloat(val);
+  updateIntervalDisplays();
+}
+function setIntervalValue(val) {
+  intervalSeconds = val;
+  intervalSlider.value = String(val);
+  updateIntervalDisplays();
+}
+function updateIntervalDisplays() {
+  intervalDisplayBadge.innerText = intervalSeconds.toFixed(1) + 's';
+  const bpm = 60 / intervalSeconds;
+  bpmCalculationText.innerText = bpm.toFixed(1) + ' BPM';
+  const pace = $('stat-pace');
+  if (pace) pace.innerText = Math.round(bpm) + ' BPM';
+}
+
+function paintStringPill(s) {
+  const pill = $('str-pill-' + s);
+  if (!pill) return;
+  const on = activeStrings.includes(s);
+  pill.classList.toggle('bg-primary-container', on);
+  pill.classList.toggle('text-on-primary-container', on);
+  pill.classList.toggle('bg-surface-container-highest', !on);
+  pill.classList.toggle('text-on-surface-variant', !on);
+}
+function toggleStringFilter(n) {
+  const i = activeStrings.indexOf(n);
+  if (i > -1) {
+    if (activeStrings.length === 1) return;
+    activeStrings.splice(i, 1);
+  } else {
+    activeStrings.push(n);
+    activeStrings.sort(function(a,b){return a-b;});
+  }
+  paintStringPill(n);
+}
+function selectAllStrings() {
+  activeStrings = [1,2,3,4,5,6];
+  for (let s = 1; s <= 6; s++) paintStringPill(s);
+}
+function isolateStrings(arr) {
+  activeStrings = arr.slice();
+  for (let s = 1; s <= 6; s++) paintStringPill(s);
+}
+
+function paintNoteBtn(i) {
+  const b = $('note-btn-' + i);
+  if (!b) return;
+  const on = activeNotes.includes(i);
+  b.classList.toggle('bg-primary-container', on);
+  b.classList.toggle('text-on-primary-container', on);
+  b.classList.toggle('bg-surface-container-highest', !on);
+  b.classList.toggle('text-on-surface-variant', !on);
+}
+function toggleNoteFilter(i) {
+  const p = activeNotes.indexOf(i);
+  if (p > -1) {
+    if (activeNotes.length === 1) return;
+    activeNotes.splice(p, 1);
+  } else {
+    activeNotes.push(i);
+    activeNotes.sort(function(a,b){return a-b;});
+  }
+  paintNoteBtn(i);
+  updateNotesCountLabel();
+}
+function selectNotePreset(preset) {
+  if (preset === 'all') activeNotes = [0,1,2,3,4,5,6,7,8,9,10,11];
+  else if (preset === 'natural') activeNotes = [0,2,4,5,7,9,11];
+  else if (preset === 'accidentals') activeNotes = [1,3,6,8,10];
+  for (let i = 0; i < 12; i++) paintNoteBtn(i);
+  updateNotesCountLabel();
+}
+function updateNotesCountLabel() {
+  $('active-notes-count').innerText = activeNotes.length + ' / 12 Active';
+}
+
+function toggleEnharmonicMode() {
+  useSharps = !useSharps;
+  const sh = $('enharmonic-sharp'), fl = $('enharmonic-flat');
+  sh.className = 'font-label-mono-sm text-label-mono-sm font-bold ' + (useSharps ? 'text-tertiary' : 'opacity-40 text-on-surface-variant');
+  fl.className = 'font-label-mono-sm text-label-mono-sm ' + (!useSharps ? 'text-tertiary font-bold' : 'opacity-40 text-on-surface-variant');
+  refreshMarkerLabels();
+  renderCurrentCard();
+  if (historyTrail.length) {
+    historyTrail = historyTrail.map(function(h){ return { stringNum: h.stringNum, noteIndex: h.noteIndex, fret: h.fret, name: displayName(h.noteIndex) }; });
+    const keep = historyTrail.slice();
+    historyTrail = [];
+    keep.reverse().forEach(function(c){ historyTrail.unshift(c); });
+    // re-render strip
+    const tmp = historyTrail.slice(); historyTrail = [];
+    tmp.reverse().forEach(function(c){
+      historyTrail.unshift(c);
+    });
+    pushHistoryTrailRefresh();
+  }
+}
+function pushHistoryTrailRefresh() {
+  const strip = $('history-trail-strip');
+  strip.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const item = historyTrail[i];
+    const el = document.createElement('button');
+    el.type = 'button';
+    if (item) {
+      el.className = 'bg-surface-container-lowest hover:bg-surface-container-high p-space-sm rounded-lg flex flex-col items-center justify-center transition-all shadow-sm';
+      el.innerHTML = '<span class="font-label-mono-sm text-label-mono-sm text-on-surface-variant">' + item.stringNum + ordinal(item.stringNum) + ' Str</span>' +
+        '<span class="font-label-mono-lg text-label-mono-lg text-primary font-bold">' + displayName(item.noteIndex) + '</span>' +
+        '<span class="text-[10px] font-mono text-secondary">Fret ' + item.fret + '</span>';
+      (function(c){ el.addEventListener('click', function(){
+        currentCard = { stringNum: c.stringNum, noteIndex: c.noteIndex, fret: c.fret };
+        manualRevealPeek = true; revealedThisCard = true; peekOverride = null; renderCurrentCard();
+      }); })(item);
+    } else {
+      el.className = 'bg-surface-container-lowest p-space-sm rounded-lg flex flex-col items-center justify-center opacity-30 cursor-default';
+      el.innerHTML = '<span class="font-label-mono-sm text-label-mono-sm text-surface-bright">--</span><span class="font-label-mono-md text-label-mono-md text-surface-bright">--</span>';
+    }
+    strip.appendChild(el);
+  }
+}
+
+function toggleAudioEngine() {
+  isSoundEnabled = !isSoundEnabled;
+  $('sound-icon').innerText = isSoundEnabled ? 'volume_up' : 'volume_off';
+  $('sound-icon').classList.toggle('text-primary', isSoundEnabled);
+  $('sound-label').innerText = isSoundEnabled ? 'Tick On' : 'Tick Off';
+  const dot = $('audio-engine-dot');
+  dot.classList.toggle('bg-secondary', isSoundEnabled);
+  dot.classList.toggle('bg-surface-bright', !isSoundEnabled);
+  if (isSoundEnabled) playTone(880, 'sine', 0.1, 0.2);
+}
+
+function setTrainingMode(mode) {
+  trainingMode = mode;
+  ['auto','recall','manual'].forEach(function(m){
+    const btn = $('mode-' + m);
+    const base = 'px-2 sm:px-space-md py-2.5 sm:py-space-xs rounded-lg font-label-mono-sm text-label-mono-sm transition-all min-h-[44px] truncate ';
+    if (m === mode) btn.className = base + 'bg-primary-container text-on-primary font-bold shadow-md';
+    else btn.className = base + 'text-on-surface-variant hover:text-on-surface';
+  });
+  const label = $('active-mode-label');
+  if (mode === 'auto') label.innerText = 'CONTINUOUS FLASH';
+  else if (mode === 'recall') label.innerText = 'RECALL & REVEAL (50% DELAY)';
+  else label.innerText = 'MANUAL ADVANCE (SPACEBAR)';
+  if (mode === 'manual' && isRunning) {
+    // stop auto timer but stay "running" for manual stepping
+    if (progressAnimationId) cancelAnimationFrame(progressAnimationId);
+    flashTimeRemaining.innerText = 'MANUAL MODE — PRESS SPACE FOR NEXT';
+    flashProgressBar.style.width = '100%';
+  } else if (isRunning) {
+    flashStartTime = 0;
+    if (progressAnimationId) cancelAnimationFrame(progressAnimationId);
+    progressAnimationId = requestAnimationFrame(runFlashProgressLoop);
+  }
+  manualRevealPeek = (mode !== 'recall');
+  revealedThisCard = (mode !== 'recall');
+  peekOverride = null;
+  highlightFretboardTarget();
+}
+
+/* ---------- Stats ---------- */
+function updateStatsUI() {
+  $('stat-total-notes').innerText = String(stats.totalFlashes);
+  $('stat-streak').innerText = String(stats.streak);
+  $('header-streak-badge').innerText = String(stats.streak);
+}
+function resetStats() {
+  stats = { totalFlashes: 0, streak: 0 };
+  historyTrail = [];
+  saveStats();
+  updateStatsUI();
+  renderEmptyHistory();
+  flashPromptId.innerText = 'CARD ID: #FRET-000';
+}
+function saveStats() {
+  try { localStorage.setItem('fretflash-stats', JSON.stringify(stats)); } catch (e) {}
+}
+function loadStats() {
+  try {
+    const raw = localStorage.getItem('fretflash-stats');
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (typeof p.totalFlashes === 'number') stats.totalFlashes = p.totalFlashes;
+      if (typeof p.streak === 'number') stats.streak = p.streak;
+    }
+  } catch (e) {}
+}
+
+/* ---------- Keyboard ---------- */
+window.addEventListener('keydown', function(e){
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
+  if (e.code === 'Space') { e.preventDefault(); advanceNextPrompt(true); }
+  else if (e.code === 'KeyP') { e.preventDefault(); toggleTrainerEngine(); }
+  else if (e.code === 'KeyR') { e.preventDefault(); toggleAnswerVisibility(); }
+});
+
+/* ---------- Init ---------- */
+document.addEventListener('DOMContentLoaded', function(){
+  loadStats();
+  buildFretboard();
+  updateIntervalDisplays();
+  updateStatsUI();
+  updateNotesCountLabel();
+  renderEmptyHistory();
+  // enharmonic initial paint
+  const sh = $('enharmonic-sharp'), fl = $('enharmonic-flat');
+  sh.classList.add('text-tertiary'); fl.classList.add('opacity-40','text-on-surface-variant');
+  if (stats.totalFlashes > 0) flashPromptId.innerText = 'CARD ID: #FRET-' + String(stats.totalFlashes).padStart(3,'0');
+  renderCurrentCard();
+});
+</script>
+</body>
+</html>
